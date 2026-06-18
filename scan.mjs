@@ -15,6 +15,10 @@ const KW = [
   { re: /\b(membership|members platform|community platform)\b/i, v: "membership", w: 3, lab: "membership" },
 ];
 const JUNK = /\b(awesome|curated list|list of|tutorials?|boilerplate|cheat.?sheet|roadmap|getting.started)\b/i;
+// Off-domain noise: popular hardware/systems/graphics repos that mis-tag themselves with our topics (e.g. uACPI tagged "aml").
+const OFF = /\b(acpi|uefi|bios|firmware|kernel|device driver|bootloader|rtos|microcontroller|fpga|verilog|opengl|vulkan|ray.?trac\w*|game engine|operating system|compiler|emulator|robotics)\b/i;
+// Demo/test/template repos are not buyers, even when on-topic. Match on the repo name.
+const DEMO = /\b(demo|sample|examples?|playground|starter|template|ui.?kit|testing|test.app|tutorial|workshop|clone|practice|assignment)\b/i;
 const NEWS = /\b(awesome|list of|comparison|roundup|how to)\b/i;
 const VENDOR = /^(persona|plaid|privy|onfido|sumsub|veriff|auth0|okta|workos|clerkinc)\//i;
 const HIRE = /\b(kyc|aml|compliance|identity|onboarding|verification|fraud|risk|trust and safety|payments? engineer)\b/i;
@@ -23,7 +27,7 @@ const GH_TOPICS = [
   { q: "topic:identity-verification", v: "identity", w: 5 }, { q: "topic:verifiable-credentials", v: "credential", w: 5 },
   { q: "topic:neobank", v: "fintech", w: 4 }, { q: "topic:fintech", v: "fintech", w: 4 },
 ];
-const ATS_GH = ["brex","mercury","gusto","chime","lithic","marqeta","alloy","affirm","stripe","checkr"];
+const ATS_GH = ["brex","mercury","gusto","chime","lithic","marqeta","alloy","affirm","stripe","checkr","monzo","sofi","nubank","robinhood","gemini"];
 
 const matchKW = (t) => { t = t || ""; for (const k of KW) if (k.re.test(t)) return k; return null; };
 const score = (w, ms, eng) => {
@@ -45,7 +49,7 @@ async function github() {
       for (const it of j.items || []) {
         if (it.fork || it.archived) continue;
         const text = it.full_name + " " + (it.description || "");
-        if (JUNK.test(text) || VENDOR.test(it.full_name)) continue;
+        if (JUNK.test(text) || OFF.test(text) || DEMO.test(it.full_name) || VENDOR.test(it.full_name)) continue;
         const m = matchKW(it.description || "");
         out.push({ id: "gh_" + it.id, name: it.full_name, source: "GitHub", vertical: m ? m.v : k.v, term: m ? m.lab : k.q.replace("topic:", ""), w: Math.max(k.w, m ? m.w : 0), ms: new Date(it.pushed_at || it.updated_at).getTime(), eng: it.stargazers_count || 0, url: it.html_url, desc: it.description, author: it.owner && it.owner.login });
       }
