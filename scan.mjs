@@ -2,7 +2,7 @@
 // Runs in GitHub Actions on a schedule. No keys needed beyond the Actions GITHUB_TOKEN.
 import { readFileSync, writeFileSync, existsSync } from "fs";
 
-const GH = process.env.GH_TOKEN || "";
+const GH = process.env.GH_PAT || process.env.GH_TOKEN || ""; // PAT (code-search capable) preferred, Actions token as fallback
 const now = Date.now();
 
 const KW = [
@@ -18,7 +18,7 @@ const JUNK = /\b(awesome|curated list|list of|tutorials?|boilerplate|cheat.?shee
 // Off-domain noise: popular hardware/systems/graphics repos that mis-tag themselves with our topics (e.g. uACPI tagged "aml").
 const OFF = /\b(acpi|uefi|bios|firmware|kernel|device driver|bootloader|rtos|microcontroller|fpga|verilog|opengl|vulkan|ray.?trac\w*|game engine|operating system|compiler|emulator|robotics)\b/i;
 // Demo/test/template repos are not buyers, even when on-topic. Match on the repo name.
-const DEMO = /\b(demo|sample|examples?|playground|starter|template|ui.?kit|testing|test.app|tutorial|workshop|clone|practice|assignment)\b/i;
+const DEMO = /\b(demo|sample|examples?|playground|starter|template|ui.?kit|testing|test.app|tutorial|workshop|clone|practice|assignment|quickstart|sandbox|awesome|boilerplate)\b/i;
 const NEWS = /\b(awesome|list of|comparison|roundup|how to)\b/i;
 const VENDOR = /^(persona|plaid|privy|onfido|sumsub|veriff|auth0|okta|workos|clerkinc)\//i;
 const HIRE = /\b(kyc|aml|compliance|identity|onboarding|verification|fraud|risk|trust and safety|payments? engineer)\b/i;
@@ -28,6 +28,21 @@ const GH_TOPICS = [
   { q: "topic:neobank", v: "fintech", w: 4 }, { q: "topic:fintech", v: "fintech", w: 4 },
 ];
 const ATS_GH = ["brex","mercury","gusto","chime","lithic","marqeta","alloy","affirm","stripe","checkr","monzo","sofi","nubank","robinhood","gemini"];
+// Teams importing a competitor's SDK in package.json = actively building = the warmest buyers. Each lead carries its own outreach hook (the vendor they shipped).
+const SDK_QUERIES = [
+  { q: '"onfido-sdk-ui" filename:package.json', vendor: "Onfido", v: "identity", w: 6 },
+  { q: '"@sumsub/websdk" filename:package.json', vendor: "Sumsub", v: "identity", w: 6 },
+  { q: '"@veriff/incontext-sdk" filename:package.json', vendor: "Veriff", v: "identity", w: 6 },
+  { q: '"@alloyidentity/web-sdk" filename:package.json', vendor: "Alloy", v: "identity", w: 6 },
+  { q: '"@workos-inc/node" filename:package.json', vendor: "WorkOS", v: "identity", w: 5 },
+  { q: '"@privy-io/react-auth" filename:package.json', vendor: "Privy", v: "wallet", w: 5 },
+  { q: '"@privy-io/server-auth" filename:package.json', vendor: "Privy", v: "wallet", w: 5 },
+  { q: '"react-plaid-link" filename:package.json', vendor: "Plaid", v: "fintech", w: 5 },
+  { q: '"plaid-node" filename:package.json', vendor: "Plaid", v: "fintech", w: 5 },
+  { q: '"@unit-finance/unit-node-sdk" filename:package.json', vendor: "Unit", v: "fintech", w: 5 },
+];
+// Vendor / SDK-mirror orgs to never surface as "buyers" (their own repos, demos, type stubs).
+const VENDOR_LOGINS = new Set(["privy-io","plaid","onfido","sumsub","veriff","getveriff","workos","workos-inc","unit-finance","alloy","alloy-samples","usealloy","alloyidentity","lithic","lithic-com","persona","withpersona","marqeta","definitelytyped","scalablytyped","cdnjs","ootbdev"]);
 
 const matchKW = (t) => { t = t || ""; for (const k of KW) if (k.re.test(t)) return k; return null; };
 const score = (w, ms, eng) => {
@@ -98,15 +113,61 @@ async function hiring() {
   return out;
 }
 
+// GitHub code search: find companies importing a competitor SDK in package.json (warmest "actively building" signal).
+async function codesearch() {
+  if (!GH) return [];
+  const headers = { Accept: "application/vnd.github+json", "User-Agent": "enforcer-radar", Authorization: "Bearer " + GH };
+  const found = new Map(); // owner login -> candidate (deduped, first/strongest query wins)
+  for (const s of SDK_QUERIES) {
+    try {
+      const j = await jget(`https://api.github.com/search/code?q=${encodeURIComponent(s.q)}&per_page=50`, { headers });
+      for (const it of j.items || []) {
+        const repo = it.repository; if (!repo || !repo.owner) continue;
+        const login = (repo.owner.login || "").toLowerCase();
+        if (!login || VENDOR_LOGINS.has(login)) continue;
+        if (repo.fork) continue;
+        if (DEMO.test(repo.full_name) || /(sdk-?ui|node-sdk|web-sdk)/i.test(repo.full_name)) continue;
+        if (found.has(login)) continue; // one card per company even across multiple SDK matches
+        found.set(login, { login, vendor: s.vendor, repo: repo.full_name, repoUrl: repo.html_url, v: s.v, w: s.w });
+      }
+    } catch (e) { console.log("code", s.vendor, e.message); }
+    await sleep(7000); // code search caps at ~10 requests/minute
+  }
+  // Qualify + enrich each unique owner: drop archived/stale repos, pull stars + the org's real brand name + website.
+  const out = [];
+  for (const c of [...found.values()].slice(0, 80)) {
+    let stars = 0, ms = now, ok = true;
+    try {
+      const rr = await fetch(`https://api.github.com/repos/${c.repo}`, { headers });
+      if (rr.ok) { const rd = await rr.json();
+        if (rd.archived) ok = false;
+        stars = rd.stargazers_count || 0;
+        ms = new Date(rd.pushed_at || now).getTime();
+        if (now - ms > 540 * 864e5) ok = false; // dead repo, not an active build
+      }
+    } catch (e) {}
+    if (!ok) { await sleep(80); continue; }
+    let company = c.login, website = null;
+    try {
+      let r = await fetch(`https://api.github.com/orgs/${c.login}`, { headers });
+      if (r.status === 404) r = await fetch(`https://api.github.com/users/${c.login}`, { headers });
+      if (r.ok) { const d = await r.json(); company = d.name || c.login; website = d.blog || null; if (d.type === "User") c.w = Math.max(3, c.w - 2); }
+    } catch (e) {}
+    await sleep(80);
+    out.push({ id: "code_" + c.login, name: c.repo, source: "Building with", vertical: c.v, term: "uses " + c.vendor, w: c.w, ms, eng: stars, url: c.repoUrl, desc: "Ships the " + c.vendor + " SDK in production code (" + c.repo + ")", company, website, author: c.login, vendor: c.vendor });
+  }
+  return out;
+}
+
 async function main() {
-  const fresh = [...(await github()), ...(await hn()), ...(await hiring())];
+  const fresh = [...(await github()), ...(await hn()), ...(await hiring()), ...(await codesearch())];
   const store = new Map();
   if (existsSync("leads.json")) { try { for (const l of JSON.parse(readFileSync("leads.json", "utf8"))) store.set(l.id, l); } catch (e) {} }
   let added = 0, updated = 0;
   for (const l of fresh) {
     l.score = score(l.w, l.ms, l.eng);
     const prev = store.get(l.id);
-    if (prev) { prev.last_seen = now; prev.score = l.score; prev.ms = l.ms; prev.eng = l.eng; prev.desc = l.desc || prev.desc; prev.company = l.company || prev.company; prev.website = l.website || prev.website; updated++; }
+    if (prev) { prev.last_seen = now; prev.score = l.score; prev.ms = l.ms; prev.eng = l.eng; prev.desc = l.desc || prev.desc; prev.company = l.company || prev.company; prev.website = l.website || prev.website; prev.vendor = l.vendor || prev.vendor; updated++; }
     else { l.first_seen = now; l.last_seen = now; store.set(l.id, l); added++; }
   }
   // drop anything not seen in 60 days, keep top 300 by score
