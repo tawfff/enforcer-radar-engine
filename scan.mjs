@@ -33,6 +33,7 @@ const score = (w, ms, eng) => {
 };
 async function jget(url, opts) { const r = await fetch(url, opts); if (!r.ok) throw new Error(url + " -> " + r.status); return r.json(); }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function domainBrand(u) { try { const d = new URL(u).hostname.replace(/^www\./, ""); if (/(news\.ycombinator|github\.com)/.test(d)) return null; return d.split(".")[0]; } catch (e) { return null; } }
 
 async function github() {
   const out = []; const since = new Date(now - 45 * 864e5).toISOString().slice(0, 10);
@@ -51,6 +52,16 @@ async function github() {
     } catch (e) { console.log("gh", k.q, e.message); }
     await sleep(2500); // stay well under search rate limit
   }
+  // Enrich with the org's REAL brand name + website (what LinkedIn knows it as). owner login != brand.
+  const owners = [...new Set(out.filter((l) => l.author).map((l) => l.author))].slice(0, 150);
+  for (const o of owners) {
+    try {
+      let r = await fetch(`https://api.github.com/orgs/${o}`, { headers });
+      if (r.status === 404) r = await fetch(`https://api.github.com/users/${o}`, { headers });
+      if (r.ok) { const d = await r.json(); for (const l of out) if (l.author === o) { l.company = d.name || l.company; l.website = d.blog || l.website || null; } }
+    } catch (e) {}
+    await sleep(90);
+  }
   return out;
 }
 async function hn() {
@@ -58,12 +69,12 @@ async function hn() {
   try {
     const j = await jget("https://hn.algolia.com/api/v1/search_by_date?tags=show_hn&hitsPerPage=100");
     for (const h of j.hits || []) { if (!h.title) continue; const m = matchKW(h.title); if (!m || NEWS.test(h.title)) continue;
-      out.push({ id: "hn_" + h.objectID, name: h.title, source: "Show HN", vertical: m.v, term: m.lab, w: m.w + 1, ms: (h.created_at_i || 0) * 1000, eng: (h.points || 0) + (h.num_comments || 0) * 2, url: h.url || "https://news.ycombinator.com/item?id=" + h.objectID, author: h.author }); }
+      out.push({ id: "hn_" + h.objectID, name: h.title, source: "Show HN", company: domainBrand(h.url), vertical: m.v, term: m.lab, w: m.w + 1, ms: (h.created_at_i || 0) * 1000, eng: (h.points || 0) + (h.num_comments || 0) * 2, url: h.url || "https://news.ycombinator.com/item?id=" + h.objectID, author: h.author }); }
   } catch (e) { console.log("hn show", e.message); }
   for (const term of ["KYC", "identity verification", "verifiable credentials", "neobank", "compliance onboarding"]) {
     try { const j = await jget(`https://hn.algolia.com/api/v1/search_by_date?query=${encodeURIComponent(term)}&tags=story&hitsPerPage=12`);
       for (const h of j.hits || []) { if (!h.title) continue; const m = matchKW(h.title); if (!m || NEWS.test(h.title)) continue;
-        out.push({ id: "hn_" + h.objectID, name: h.title, source: "Hacker News", vertical: m.v, term: m.lab, w: m.w, ms: (h.created_at_i || 0) * 1000, eng: (h.points || 0) + (h.num_comments || 0) * 2, url: h.url || "https://news.ycombinator.com/item?id=" + h.objectID, author: h.author }); }
+        out.push({ id: "hn_" + h.objectID, name: h.title, source: "Hacker News", company: domainBrand(h.url), vertical: m.v, term: m.lab, w: m.w, ms: (h.created_at_i || 0) * 1000, eng: (h.points || 0) + (h.num_comments || 0) * 2, url: h.url || "https://news.ycombinator.com/item?id=" + h.objectID, author: h.author }); }
     } catch (e) { console.log("hn", term, e.message); }
   }
   return out;
@@ -77,7 +88,7 @@ async function hiring() {
       if (!roles.length) continue;
       const latest = Math.max(...roles.map((r) => new Date(r.updated_at || now).getTime()));
       const company = slug.charAt(0).toUpperCase() + slug.slice(1);
-      out.push({ id: "hire_" + slug, name: company, source: "Hiring", vertical: "identity", term: "hiring: " + roles[0].title, w: 4, ms: latest, eng: roles.length * 30, url: roles[0].absolute_url || ("https://boards.greenhouse.io/" + slug), desc: "Open roles: " + roles.map((r) => r.title).join(" · "), author: company });
+      out.push({ id: "hire_" + slug, name: company, source: "Hiring", company: company, vertical: "identity", term: "hiring: " + roles[0].title, w: 4, ms: latest, eng: roles.length * 30, url: roles[0].absolute_url || ("https://boards.greenhouse.io/" + slug), desc: "Open roles: " + roles.map((r) => r.title).join(" · "), author: company });
     } catch (e) { console.log("ats", slug, e.message); }
   }
   return out;
@@ -91,7 +102,7 @@ async function main() {
   for (const l of fresh) {
     l.score = score(l.w, l.ms, l.eng);
     const prev = store.get(l.id);
-    if (prev) { prev.last_seen = now; prev.score = l.score; prev.ms = l.ms; prev.eng = l.eng; prev.desc = l.desc || prev.desc; updated++; }
+    if (prev) { prev.last_seen = now; prev.score = l.score; prev.ms = l.ms; prev.eng = l.eng; prev.desc = l.desc || prev.desc; prev.company = l.company || prev.company; prev.website = l.website || prev.website; updated++; }
     else { l.first_seen = now; l.last_seen = now; store.set(l.id, l); added++; }
   }
   // drop anything not seen in 60 days, keep top 300 by score
