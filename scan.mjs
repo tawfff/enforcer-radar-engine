@@ -20,14 +20,17 @@ const OFF = /\b(acpi|uefi|bios|firmware|kernel|device driver|bootloader|rtos|mic
 // Demo/test/template repos are not buyers, even when on-topic. Match on the repo name.
 const DEMO = /\b(demo|sample|examples?|playground|starter|template|ui.?kit|testing|test.app|tutorial|workshop|clone|practice|assignment|quickstart|sandbox|awesome|boilerplate)\b/i;
 const NEWS = /\b(awesome|list of|comparison|roundup|how to)\b/i;
+// Pirated-software / SEO-spam repos that tag popular topics to ride them (e.g. "AML Maple" karaoke crack tagged topic:aml).
+const CRACK = /\b(crack|keygen|nulled|warez|repack|cracked|patch.?repo|aml.?maple|activation.?key|license.?key|serial.?key)\b/i;
 const VENDOR = /^(persona|plaid|privy|onfido|sumsub|veriff|auth0|okta|workos|clerkinc)\//i;
 const HIRE = /\b(kyc|aml|compliance|identity|onboarding|verification|fraud|risk|trust and safety|payments? engineer)\b/i;
 const GH_TOPICS = [
   { q: "topic:kyc", v: "identity", w: 5 }, { q: "topic:aml", v: "identity", w: 5 },
   { q: "topic:identity-verification", v: "identity", w: 5 }, { q: "topic:verifiable-credentials", v: "credential", w: 5 },
   { q: "topic:neobank", v: "fintech", w: 4 }, { q: "topic:fintech", v: "fintech", w: 4 },
+  { q: "topic:ssi", v: "credential", w: 5 },
 ];
-const ATS_GH = ["brex","mercury","gusto","chime","lithic","marqeta","alloy","affirm","stripe","checkr","monzo","sofi","nubank","robinhood","gemini"];
+const ATS_GH = ["brex","mercury","gusto","chime","lithic","marqeta","alloy","affirm","stripe","checkr","monzo","sofi","nubank","robinhood","gemini","ripple","coinbase","bitpanda","n26"];
 // Teams importing a competitor's SDK in package.json = actively building = the warmest buyers. Each lead carries its own outreach hook (the vendor they shipped).
 const SDK_QUERIES = [
   { q: '"onfido-sdk-ui" filename:package.json', vendor: "Onfido", v: "identity", w: 6 },
@@ -64,7 +67,7 @@ async function github() {
       for (const it of j.items || []) {
         if (it.fork || it.archived) continue;
         const text = it.full_name + " " + (it.description || "");
-        if (JUNK.test(text) || OFF.test(text) || DEMO.test(it.full_name) || VENDOR.test(it.full_name)) continue;
+        if (JUNK.test(text) || OFF.test(text) || CRACK.test(it.full_name) || DEMO.test(it.full_name) || VENDOR.test(it.full_name)) continue;
         const m = matchKW(it.description || "");
         out.push({ id: "gh_" + it.id, name: it.full_name, source: "GitHub", vertical: m ? m.v : k.v, term: m ? m.lab : k.q.replace("topic:", ""), w: Math.max(k.w, m ? m.w : 0), ms: new Date(it.pushed_at || it.updated_at).getTime(), eng: it.stargazers_count || 0, url: it.html_url, desc: it.description, author: it.owner && it.owner.login });
       }
