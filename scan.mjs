@@ -30,7 +30,7 @@ const GH_TOPICS = [
   { q: "topic:neobank", v: "fintech", w: 4 }, { q: "topic:fintech", v: "fintech", w: 4 },
   { q: "topic:ssi", v: "credential", w: 5 },
 ];
-const ATS_GH = ["brex","mercury","gusto","chime","lithic","marqeta","alloy","affirm","stripe","checkr","monzo","sofi","nubank","robinhood","gemini","ripple","coinbase","bitpanda","n26"];
+const ATS_GH = ["brex","mercury","gusto","chime","lithic","marqeta","alloy","affirm","stripe","checkr","monzo","sofi","nubank","robinhood","gemini","ripple","coinbase","bitpanda","n26","gocardless","solarisbank"];
 // Teams importing a competitor's SDK in package.json = actively building = the warmest buyers. Each lead carries its own outreach hook (the vendor they shipped).
 const SDK_QUERIES = [
   { q: '"onfido-sdk-ui" filename:package.json', vendor: "Onfido", v: "identity", w: 6 },
@@ -46,6 +46,10 @@ const SDK_QUERIES = [
 ];
 // Vendor / SDK-mirror orgs to never surface as "buyers" (their own repos, demos, type stubs).
 const VENDOR_LOGINS = new Set(["privy-io","plaid","onfido","sumsub","veriff","getveriff","workos","workos-inc","unit-finance","alloy","alloy-samples","usealloy","alloyidentity","lithic","lithic-com","persona","withpersona","marqeta","definitelytyped","scalablytyped","cdnjs","ootbdev"]);
+// Repo-farm / directory accounts that mass-publish single-purpose repos tagged with our topics. NOT buyers:
+// api-evangelist = 10k-repo public API directory (Kin Lane research dumps); cognis-digital = 376-repo MCP-tool farm building KYC/AML toolkits (a tool vendor, not a buyer).
+const OWNER_DENY = new Set(["api-evangelist","cognis-digital"]);
+const OWNER_CAP = 3; // no single GitHub owner may flood the board (guards against future repo-farms)
 
 const matchKW = (t) => { t = t || ""; for (const k of KW) if (k.re.test(t)) return k; return null; };
 const score = (w, ms, eng) => {
@@ -66,6 +70,7 @@ async function github() {
       const j = await jget(`https://api.github.com/search/repositories?q=${encodeURIComponent(k.q + " pushed:>" + since)}&sort=updated&order=desc&per_page=30`, { headers });
       for (const it of j.items || []) {
         if (it.fork || it.archived) continue;
+        if (OWNER_DENY.has(((it.owner && it.owner.login) || "").toLowerCase())) continue;
         const text = it.full_name + " " + (it.description || "");
         if (JUNK.test(text) || OFF.test(text) || CRACK.test(it.full_name) || DEMO.test(it.full_name) || VENDOR.test(it.full_name)) continue;
         const m = matchKW(it.description || "");
@@ -173,9 +178,14 @@ async function main() {
     if (prev) { prev.last_seen = now; prev.score = l.score; prev.ms = l.ms; prev.eng = l.eng; prev.desc = l.desc || prev.desc; prev.company = l.company || prev.company; prev.website = l.website || prev.website; prev.vendor = l.vendor || prev.vendor; updated++; }
     else { l.first_seen = now; l.last_seen = now; store.set(l.id, l); added++; }
   }
-  // drop anything not seen in 60 days, keep top 300 by score
+  // drop anything not seen in 60 days, prune denied repo-farms (cleans previously-stored junk), cap any single owner, keep top 300 by score
   const cutoff = now - 60 * 864e5;
-  let all = [...store.values()].filter((l) => (l.last_seen || now) > cutoff).sort((a, b) => b.score - a.score).slice(0, 300);
+  let all = [...store.values()].filter((l) => (l.last_seen || now) > cutoff);
+  all = all.filter((l) => !(l.author && OWNER_DENY.has(l.author.toLowerCase())));
+  all.sort((a, b) => b.score - a.score);
+  const ownerSeen = {};
+  all = all.filter((l) => { const o = l.author ? l.author.toLowerCase() : null; if (!o) return true; ownerSeen[o] = (ownerSeen[o] || 0) + 1; return ownerSeen[o] <= OWNER_CAP; });
+  all = all.slice(0, 300);
   writeFileSync("leads.json", JSON.stringify({ updated_at: new Date().toISOString(), count: all.length, leads: all }, null, 0));
   console.log(`scan done: ${fresh.length} fresh, +${added} new, ~${updated} updated, ${all.length} stored`);
 }
