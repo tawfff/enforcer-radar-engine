@@ -16,7 +16,7 @@ const KW = [
 ];
 const JUNK = /\b(awesome|curated list|list of|tutorials?|boilerplate|cheat.?sheet|roadmap|getting.started)\b/i;
 // Off-domain noise: popular hardware/systems/graphics repos that mis-tag themselves with our topics (e.g. uACPI tagged "aml").
-const OFF = /\b(acpi|uefi|bios|firmware|kernel|device driver|bootloader|rtos|microcontroller|fpga|verilog|opengl|vulkan|ray.?trac\w*|game engine|operating system|compiler|emulator|robotics)\b/i;
+const OFF = /\b(acpi|uefi|bios|firmware|kernel|device driver|bootloader|rtos|microcontroller|fpga|verilog|opengl|vulkan|ray.?trac\w*|game engine|operating system|compiler|emulator|robotics|proxmox|kubevirt|hypervisor|virtualiz\w*|virtualis\w*|qemu|lxd|incus|containerd|podman)\b/i;
 // Demo/test/template repos are not buyers, even when on-topic. Match on the repo name.
 const DEMO = /\b(demo|sample|examples?|playground|starter|template|ui.?kit|testing|test.app|tutorial|workshop|clone|practice|assignment|quickstart|sandbox|awesome|boilerplate)\b/i;
 const NEWS = /\b(awesome|list of|comparison|roundup|how to)\b/i;
@@ -48,7 +48,8 @@ const SDK_QUERIES = [
 const VENDOR_LOGINS = new Set(["privy-io","plaid","onfido","sumsub","veriff","getveriff","workos","workos-inc","unit-finance","alloy","alloy-samples","usealloy","alloyidentity","lithic","lithic-com","persona","withpersona","marqeta","definitelytyped","scalablytyped","cdnjs","ootbdev"]);
 // Repo-farm / directory accounts that mass-publish single-purpose repos tagged with our topics. NOT buyers:
 // api-evangelist = 10k-repo public API directory (Kin Lane research dumps); cognis-digital = 376-repo MCP-tool farm building KYC/AML toolkits (a tool vendor, not a buyer).
-const OWNER_DENY = new Set(["api-evangelist","cognis-digital"]);
+// qinisolabs = week-old "labs" org mass-publishing single-purpose "for AI agents" micro-tools (sanctionwise/companieswise/localecheck), a tool vendor not a buyer; ariannamethod = off-domain weightless-neural-network research project that mis-tags topic:aml.
+const OWNER_DENY = new Set(["api-evangelist","cognis-digital","qinisolabs","ariannamethod"]);
 const OWNER_CAP = 3; // no single GitHub owner may flood the board (guards against future repo-farms)
 
 const matchKW = (t) => { t = t || ""; for (const k of KW) if (k.re.test(t)) return k; return null; };
