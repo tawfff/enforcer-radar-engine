@@ -22,6 +22,8 @@ const DEMO = /\b(demo|sample|examples?|playground|starter|template|ui.?kit|testi
 const NEWS = /\b(awesome|list of|comparison|roundup|how to)\b/i;
 // Pirated-software / SEO-spam repos that tag popular topics to ride them (e.g. "AML Maple" karaoke crack tagged topic:aml).
 const CRACK = /\b(crack|keygen|nulled|warez|repack|cracked|patch.?repo|aml.?maple|activation.?key|license.?key|serial.?key)\b/i;
+// AI-agent / MCP / dev-tool / security-tool projects that mis-tag identity & fintech topics to ride them. NOT buyers (no compliance budget; mostly brand-new 0-star repos). Verified 2026-06-22 to remove 22 such leads and zero real buyers.
+const TOOL = /\b(mcp server|model context protocol|coding agent|prompt injection|burp suite|claude code|ai agents?|gpg|pgp key|keygen|skip-invite)\b/i;
 const VENDOR = /^(persona|plaid|privy|onfido|sumsub|veriff|auth0|okta|workos|clerkinc)\//i;
 const HIRE = /\b(kyc|aml|compliance|identity|onboarding|verification|fraud|risk|trust and safety|payments? engineer)\b/i;
 const GH_TOPICS = [
@@ -30,7 +32,7 @@ const GH_TOPICS = [
   { q: "topic:neobank", v: "fintech", w: 4 }, { q: "topic:fintech", v: "fintech", w: 4 },
   { q: "topic:ssi", v: "credential", w: 5 },
 ];
-const ATS_GH = ["brex","mercury","gusto","chime","lithic","marqeta","alloy","affirm","stripe","checkr","monzo","sofi","nubank","robinhood","gemini","ripple","coinbase","bitpanda","n26","gocardless","solarisbank"];
+const ATS_GH = ["brex","mercury","gusto","chime","lithic","marqeta","alloy","affirm","stripe","checkr","monzo","sofi","nubank","robinhood","gemini","ripple","coinbase","bitpanda","n26","gocardless","solarisbank","block"];
 // Teams importing a competitor's SDK in package.json = actively building = the warmest buyers. Each lead carries its own outreach hook (the vendor they shipped).
 const SDK_QUERIES = [
   { q: '"onfido-sdk-ui" filename:package.json', vendor: "Onfido", v: "identity", w: 6 },
@@ -73,7 +75,7 @@ async function github() {
         if (it.fork || it.archived) continue;
         if (OWNER_DENY.has(((it.owner && it.owner.login) || "").toLowerCase())) continue;
         const text = it.full_name + " " + (it.description || "");
-        if (JUNK.test(text) || OFF.test(text) || CRACK.test(it.full_name) || DEMO.test(it.full_name) || VENDOR.test(it.full_name)) continue;
+        if (JUNK.test(text) || OFF.test(text) || TOOL.test(text) || CRACK.test(it.full_name) || DEMO.test(it.full_name) || VENDOR.test(it.full_name)) continue;
         const m = matchKW(it.description || "");
         out.push({ id: "gh_" + it.id, name: it.full_name, source: "GitHub", vertical: m ? m.v : k.v, term: m ? m.lab : k.q.replace("topic:", ""), w: Math.max(k.w, m ? m.w : 0), ms: new Date(it.pushed_at || it.updated_at).getTime(), eng: it.stargazers_count || 0, url: it.html_url, desc: it.description, author: it.owner && it.owner.login });
       }
@@ -183,6 +185,8 @@ async function main() {
   const cutoff = now - 60 * 864e5;
   let all = [...store.values()].filter((l) => (l.last_seen || now) > cutoff);
   all = all.filter((l) => !(l.author && OWNER_DENY.has(l.author.toLowerCase())));
+  all = all.filter((l) => !(l.source === "GitHub" && TOOL.test((l.name || "") + " " + (l.desc || "")))); // prune already-stored AI-agent/MCP/tool junk
+
   all.sort((a, b) => b.score - a.score);
   const ownerSeen = {};
   all = all.filter((l) => { const o = l.author ? l.author.toLowerCase() : null; if (!o) return true; ownerSeen[o] = (ownerSeen[o] || 0) + 1; return ownerSeen[o] <= OWNER_CAP; });
