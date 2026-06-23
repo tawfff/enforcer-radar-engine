@@ -32,7 +32,7 @@ const GH_TOPICS = [
   { q: "topic:neobank", v: "fintech", w: 4 }, { q: "topic:fintech", v: "fintech", w: 4 },
   { q: "topic:ssi", v: "credential", w: 5 },
 ];
-const ATS_GH = ["brex","mercury","gusto","chime","lithic","marqeta","alloy","affirm","stripe","checkr","monzo","sofi","nubank","robinhood","gemini","ripple","coinbase","bitpanda","n26","gocardless","solarisbank","block"];
+const ATS_GH = ["brex","mercury","gusto","chime","lithic","marqeta","alloy","affirm","stripe","checkr","monzo","sofi","nubank","robinhood","gemini","ripple","coinbase","bitpanda","n26","gocardless","solarisbank","block","blockchain"];
 // Teams importing a competitor's SDK in package.json = actively building = the warmest buyers. Each lead carries its own outreach hook (the vendor they shipped).
 const SDK_QUERIES = [
   { q: '"onfido-sdk-ui" filename:package.json', vendor: "Onfido", v: "identity", w: 6 },
@@ -51,7 +51,8 @@ const VENDOR_LOGINS = new Set(["privy-io","plaid","onfido","sumsub","veriff","ge
 // Repo-farm / directory accounts that mass-publish single-purpose repos tagged with our topics. NOT buyers:
 // api-evangelist = 10k-repo public API directory (Kin Lane research dumps); cognis-digital = 376-repo MCP-tool farm building KYC/AML toolkits (a tool vendor, not a buyer).
 // qinisolabs = week-old "labs" org mass-publishing single-purpose "for AI agents" micro-tools (sanctionwise/companieswise/localecheck), a tool vendor not a buyer; ariannamethod = off-domain weightless-neural-network research project that mis-tags topic:aml.
-const OWNER_DENY = new Set(["api-evangelist","cognis-digital","qinisolabs","ariannamethod"]);
+// shaostoul = off-domain personal "Humanity" civilizational/philosophy project (10 stars) that self-tags verifiable-credentials/decentralized-identity to ride those topics; not a buyer (flagged junk 06-19, was sitting at score 86).
+const OWNER_DENY = new Set(["api-evangelist","cognis-digital","qinisolabs","ariannamethod","shaostoul"]);
 const OWNER_CAP = 3; // no single GitHub owner may flood the board (guards against future repo-farms)
 
 const matchKW = (t) => { t = t || ""; for (const k of KW) if (k.re.test(t)) return k; return null; };
