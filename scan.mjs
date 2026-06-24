@@ -15,8 +15,9 @@ const KW = [
   { re: /\b(membership|members platform|community platform)\b/i, v: "membership", w: 3, lab: "membership" },
 ];
 const JUNK = /\b(awesome|curated list|list of|tutorials?|boilerplate|cheat.?sheet|roadmap|getting.started)\b/i;
-// Off-domain noise: popular hardware/systems/graphics repos that mis-tag themselves with our topics (e.g. uACPI tagged "aml").
-const OFF = /\b(acpi|uefi|bios|firmware|kernel|device driver|bootloader|rtos|microcontroller|fpga|verilog|opengl|vulkan|ray.?trac\w*|game engine|operating system|compiler|emulator|robotics|proxmox|kubevirt|hypervisor|virtualiz\w*|virtualis\w*|qemu|lxd|incus|containerd|podman)\b/i;
+// Off-domain noise: popular hardware/systems/graphics repos that mis-tag themselves with our topics (e.g. uACPI tagged "aml"),
+// plus retail-trading-tool / personal-finance-toy / adtech README-spam that rides topic:fintech (verified 2026-06-24: drops 6 such, zero real buyers).
+const OFF = /\b(acpi|uefi|bios|firmware|kernel|device driver|bootloader|rtos|microcontroller|fpga|verilog|opengl|vulkan|ray.?trac\w*|game engine|operating system|compiler|emulator|robotics|proxmox|kubevirt|hypervisor|virtualiz\w*|virtualis\w*|qemu|lxd|incus|containerd|podman|scalper|backtest\w*|quant\w*[ -]?trading|trading[ -]?bot|expense[ -]?tracker|recommendation system|stock[ -]?market data)\b/i;
 // Demo/test/template repos are not buyers, even when on-topic. Match on the repo name.
 const DEMO = /\b(demo|sample|examples?|playground|starter|template|ui.?kit|testing|test.app|tutorial|workshop|clone|practice|assignment|quickstart|sandbox|awesome|boilerplate)\b/i;
 const NEWS = /\b(awesome|list of|comparison|roundup|how to)\b/i;
@@ -187,6 +188,7 @@ async function main() {
   let all = [...store.values()].filter((l) => (l.last_seen || now) > cutoff);
   all = all.filter((l) => !(l.author && OWNER_DENY.has(l.author.toLowerCase())));
   all = all.filter((l) => !(l.source === "GitHub" && TOOL.test((l.name || "") + " " + (l.desc || "")))); // prune already-stored AI-agent/MCP/tool junk
+  all = all.filter((l) => !(l.source === "GitHub" && OFF.test((l.name || "") + " " + (l.desc || "")))); // prune already-stored off-domain junk (trading bots, expense trackers, adtech)
 
   all.sort((a, b) => b.score - a.score);
   const ownerSeen = {};
