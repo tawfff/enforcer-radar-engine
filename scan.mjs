@@ -17,7 +17,7 @@ const KW = [
 const JUNK = /\b(awesome|curated list|list of|tutorials?|boilerplate|cheat.?sheet|roadmap|getting.started)\b/i;
 // Off-domain noise: popular hardware/systems/graphics repos that mis-tag themselves with our topics (e.g. uACPI tagged "aml"),
 // plus retail-trading-tool / personal-finance-toy / adtech README-spam that rides topic:fintech (verified 2026-06-24: drops 6 such, zero real buyers).
-const OFF = /\b(acpi|uefi|bios|firmware|kernel|device driver|bootloader|rtos|microcontroller|fpga|verilog|opengl|vulkan|ray.?trac\w*|game engine|operating system|compiler|emulator|robotics|proxmox|kubevirt|hypervisor|virtualiz\w*|virtualis\w*|qemu|lxd|incus|containerd|podman|scalper|backtest\w*|quant\w*[ -]?trading|trading[ -]?bot|expense[ -]?tracker|recommendation system|stock[ -]?market data|anti.?spoof\w*|presentation.?attack)\b/i;
+const OFF = /\b(acpi|uefi|bios|firmware|kernel|device driver|bootloader|rtos|microcontroller|fpga|verilog|opengl|vulkan|ray.?trac\w*|game engine|operating system|compiler|emulator|robotics|proxmox|kubevirt|hypervisor|virtualiz\w*|virtualis\w*|qemu|lxd|incus|containerd|podman|scalper|backtest\w*|quant\w*[ -]?trading|trading[ -]?bot|expense[ -]?tracker|recommendation system|stock[ -]?market data|anti.?spoof\w*|presentation.?attack|gitleaks|secret.?scann\w*|leaked.?(api[ -]?)?keys?)\b/i;
 // Demo/test/template repos are not buyers, even when on-topic. Match on the repo name.
 const DEMO = /\b(demo|sample|examples?|playground|starter|template|ui.?kit|testing|test.app|tutorial|workshop|clone|practice|assignment|quickstart|sandbox|awesome|boilerplate)\b/i;
 const NEWS = /\b(awesome|list of|comparison|roundup|how to)\b/i;
@@ -33,7 +33,7 @@ const GH_TOPICS = [
   { q: "topic:neobank", v: "fintech", w: 4 }, { q: "topic:fintech", v: "fintech", w: 4 },
   { q: "topic:ssi", v: "credential", w: 5 },
 ];
-const ATS_GH = ["brex","mercury","gusto","chime","lithic","marqeta","alloy","affirm","stripe","checkr","monzo","sofi","nubank","robinhood","gemini","ripple","coinbase","bitpanda","n26","gocardless","solarisbank","block","blockchain","adyen","tide","sumup","thunes"];
+const ATS_GH = ["brex","mercury","gusto","chime","lithic","marqeta","alloy","affirm","stripe","checkr","monzo","sofi","nubank","robinhood","gemini","ripple","coinbase","bitpanda","n26","gocardless","solarisbank","block","blockchain","adyen","tide","sumup","thunes","c6bank"];
 // Teams importing a competitor's SDK in package.json = actively building = the warmest buyers. Each lead carries its own outreach hook (the vendor they shipped).
 const SDK_QUERIES = [
   { q: '"onfido-sdk-ui" filename:package.json', vendor: "Onfido", v: "identity", w: 6 },
