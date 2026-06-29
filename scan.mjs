@@ -27,6 +27,7 @@ const CRACK = /\b(crack|keygen|nulled|warez|repack|cracked|patch.?repo|aml.?mapl
 const TOOL = /\b(mcp server|model context protocol|coding agent|prompt injection|burp suite|claude code|ai agents?|gpg|pgp key|keygen|skip-invite)\b/i;
 const VENDOR = /^(persona|plaid|privy|onfido|sumsub|sumsubstance|innovatrics|doubangotelecom|veriff|auth0|okta|workos|clerkinc)\//i;
 const HIRE = /\b(kyc|aml|compliance|identity|onboarding|verification|fraud|risk|trust and safety|payments? engineer)\b/i;
+const STRONG = /\b(kyc|aml|pld|cdd|sanctions?|financial crime|money laundering|lavagem|compliance|fraud)\b/i; // rank these strongest-intent roles to the front so the card opener shows them, not generic "onboarding"
 const GH_TOPICS = [
   { q: "topic:kyc", v: "identity", w: 5 }, { q: "topic:aml", v: "identity", w: 5 },
   { q: "topic:identity-verification", v: "identity", w: 5 }, { q: "topic:verifiable-credentials", v: "credential", w: 5 },
@@ -116,7 +117,7 @@ async function hiring() {
   for (const slug of ATS_GH) {
     try {
       const j = await jget(`https://boards-api.greenhouse.io/v1/boards/${slug}/jobs?content=true`);
-      const roles = (j.jobs || []).filter((job) => HIRE.test(job.title || "")).slice(0, 4);
+      const roles = (j.jobs || []).filter((job) => HIRE.test(job.title || "")).sort((a, b) => (STRONG.test(b.title || "") ? 1 : 0) - (STRONG.test(a.title || "") ? 1 : 0)).slice(0, 4);
       if (!roles.length) continue;
       const latest = Math.max(...roles.map((r) => new Date(r.updated_at || now).getTime()));
       const company = slug.charAt(0).toUpperCase() + slug.slice(1);
