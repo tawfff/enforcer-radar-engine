@@ -34,7 +34,7 @@ const GH_TOPICS = [
   { q: "topic:neobank", v: "fintech", w: 4 }, { q: "topic:fintech", v: "fintech", w: 4 },
   { q: "topic:ssi", v: "credential", w: 5 },
 ];
-const ATS_GH = ["brex","mercury","gusto","chime","lithic","marqeta","alloy","affirm","stripe","checkr","monzo","sofi","nubank","robinhood","gemini","ripple","coinbase","bitpanda","n26","gocardless","solarisbank","block","blockchain","adyen","tide","sumup","thunes","c6bank","payoneer","ebury","bvnk","okx","luno","bybit"];
+const ATS_GH = ["brex","mercury","gusto","chime","lithic","marqeta","alloy","affirm","stripe","checkr","monzo","sofi","nubank","robinhood","gemini","ripple","coinbase","bitpanda","n26","gocardless","solarisbank","block","blockchain","adyen","tide","sumup","thunes","c6bank","payoneer","ebury","bvnk","okx","luno","bybit","xendit"];
 // Teams importing a competitor's SDK in package.json = actively building = the warmest buyers. Each lead carries its own outreach hook (the vendor they shipped).
 const SDK_QUERIES = [
   { q: '"onfido-sdk-ui" filename:package.json', vendor: "Onfido", v: "identity", w: 6 },
