@@ -34,7 +34,7 @@ const GH_TOPICS = [
   { q: "topic:neobank", v: "fintech", w: 4 }, { q: "topic:fintech", v: "fintech", w: 4 },
   { q: "topic:ssi", v: "credential", w: 5 },
 ];
-const ATS_GH = ["brex","mercury","gusto","chime","lithic","marqeta","alloy","affirm","stripe","checkr","monzo","sofi","nubank","robinhood","gemini","ripple","coinbase","bitpanda","n26","gocardless","solarisbank","block","blockchain","adyen","tide","sumup","thunes","c6bank","payoneer","ebury","bvnk","okx","luno","bybit","xendit","inter"];
+const ATS_GH = ["brex","mercury","gusto","chime","lithic","marqeta","alloy","affirm","stripe","checkr","monzo","sofi","nubank","robinhood","gemini","ripple","coinbase","bitpanda","n26","gocardless","solarisbank","block","blockchain","adyen","tide","sumup","thunes","c6bank","payoneer","ebury","bvnk","okx","luno","bybit","xendit","inter","tamara"];
 // Teams importing a competitor's SDK in package.json = actively building = the warmest buyers. Each lead carries its own outreach hook (the vendor they shipped).
 const SDK_QUERIES = [
   { q: '"onfido-sdk-ui" filename:package.json', vendor: "Onfido", v: "identity", w: 6 },
@@ -55,7 +55,7 @@ const VENDOR_LOGINS = new Set(["privy-io","plaid","onfido","sumsub","veriff","ge
 // qinisolabs = week-old "labs" org mass-publishing single-purpose "for AI agents" micro-tools (sanctionwise/companieswise/localecheck), a tool vendor not a buyer; ariannamethod = off-domain weightless-neural-network research project that mis-tags topic:aml.
 // shaostoul = off-domain personal "Humanity" civilizational/philosophy project (10 stars) that self-tags verifiable-credentials/decentralized-identity to ride those topics; not a buyer (flagged junk 06-19, was sitting at score 86).
 // smileidentity = Smile ID (smile.id), African KYC/identity-verification VENDOR (Enforcer competitor) publishing its own SDK/API-reference repos; zhu-j-faceonlive = FaceOnLive affiliate account (blog faceonlive.com), biometric ID-verification vendor's product/demo repos. Both are anchored-VENDOR-regex misses (like SumSubstance 06-25): vendors, never buyers. Added 2026-07-07, drop 6 stored leads.
-const OWNER_DENY = new Set(["api-evangelist","cognis-digital","qinisolabs","ariannamethod","shaostoul","xbbg-org","cccpan","smileidentity","zhu-j-faceonlive"]);
+const OWNER_DENY = new Set(["api-evangelist","cognis-digital","qinisolabs","ariannamethod","shaostoul","xbbg-org","cccpan","smileidentity","zhu-j-faceonlive","remoprinz","karbine98kz"]);
 const OWNER_CAP = 3; // no single GitHub owner may flood the board (guards against future repo-farms)
 
 const matchKW = (t) => { t = t || ""; for (const k of KW) if (k.re.test(t)) return k; return null; };
