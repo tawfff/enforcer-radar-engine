@@ -34,7 +34,7 @@ const GH_TOPICS = [
   { q: "topic:neobank", v: "fintech", w: 4 }, { q: "topic:fintech", v: "fintech", w: 4 },
   { q: "topic:ssi", v: "credential", w: 5 },
 ];
-const ATS_GH = ["brex","mercury","gusto","chime","lithic","marqeta","alloy","affirm","stripe","checkr","monzo","sofi","nubank","robinhood","gemini","ripple","coinbase","bitpanda","n26","gocardless","solarisbank","block","blockchain","adyen","tide","sumup","thunes","c6bank","payoneer","ebury","bvnk","okx","luno","bybit","xendit","inter","tamara","truelayer"];
+const ATS_GH = ["brex","mercury","gusto","chime","lithic","marqeta","alloy","affirm","stripe","checkr","monzo","sofi","nubank","robinhood","gemini","ripple","coinbase","bitpanda","n26","gocardless","solarisbank","block","blockchain","adyen","tide","sumup","thunes","c6bank","payoneer","ebury","bvnk","okx","luno","bybit","xendit","inter","tamara","truelayer","upstart","sezzle","moniepoint"];
 // Teams importing a competitor's SDK in package.json = actively building = the warmest buyers. Each lead carries its own outreach hook (the vendor they shipped).
 const SDK_QUERIES = [
   { q: '"onfido-sdk-ui" filename:package.json', vendor: "Onfido", v: "identity", w: 6 },
@@ -67,7 +67,12 @@ const OWNER_CAP = 3; // no single GitHub owner may flood the board (guards again
 // prose by 08-05). Both denied domains are verified vendors/tools, never buyers, so this is the VENDOR class applied to the website field:
 // finauth.io = "KYC Identity Verification & Biometric Authentication API" (face biometrics/liveness/doc OCR/AML screening) = an Enforcer competitor;
 // faceseek.online = reverse-face-search OSINT tool, off-domain. Added 2026-08-05, drops 39 stored leads across 20 throwaway owners.
-const SITE_DENY = new Set(["finauth.io", "faceseek.online"]);
+// Same operation, 2 more properties confirmed the same day by walking one owner's repo list (EmeraldCentipede published across all four):
+// faceonlive.com = "On-Premises Face Recognition & ID Verification (eKYC) SDKs" = a competitor ALREADY owner-banned once as zhu-j-faceonlive on 07-07,
+// which is precisely the whack-a-mole this domain anchor ends; payrollflow.io = freelancer invoicing/payout site, off-domain. 153 farm repos across
+// these 4 domains from just 8 of the ~21 owners. Rule applied: an entity running a GitHub SEO backlink farm is disqualified as a lead whatever it sells.
+// NOTE the anchor is strong because github() enriches `website` from the OWNER PROFILE blog, so one domain drops every repo that owner ever publishes.
+const SITE_DENY = new Set(["finauth.io", "faceseek.online", "faceonlive.com", "payrollflow.io"]);
 const siteDenied = (u) => { if (!u) return false; const h = String(u).replace(/^https?:\/\//i, "").replace(/^www\./i, "").split(/[/?#]/)[0].toLowerCase(); return [...SITE_DENY].some((d) => h === d || h.endsWith("." + d)); };
 
 const matchKW = (t) => { t = t || ""; for (const k of KW) if (k.re.test(t)) return k; return null; };
