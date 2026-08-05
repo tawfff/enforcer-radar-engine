@@ -61,6 +61,14 @@ const VENDOR_LOGINS = new Set(["privy-io","plaid","onfido","sumsub","veriff","ge
 // hkuds = Data Intelligence Lab @ HKU (Org, 27920 stars on Vibe-Trading), a prolific university AI-research lab publishing off-domain frameworks (LightRAG/MiniRAG/VideoRAG/agents and now Vibe-Trading "Your Personal Trading Agent", topics ai-agent/algorithmic-trading/fintech) that ride topic:fintech. An algo-trading LLM agent, never a KYC/identity buyer; the lab publishes only AI research, never a compliance buyer, so an owner ban carries zero false-negative risk (same prolific-off-domain-publisher class as yeasy). Text-filter risk: `trading agent` could catch a real payments buyer, so owner-ban is the safe choice. Sat at score 91. Added 2026-07-27, drop 1 stored lead.
 const OWNER_DENY = new Set(["api-evangelist","cognis-digital","qinisolabs","ariannamethod","shaostoul","xbbg-org","cccpan","smileidentity","zhu-j-faceonlive","remoprinz","karbine98kz","ghostfolio","abolfazltafakori","jumbojett","burnssa","yeasy","faceplugin-ltd","hkuds","wordstotech-design"]);
 const OWNER_CAP = 3; // no single GitHub owner may flood the board (guards against future repo-farms)
+// SEO backlink farms: template repos cloned across MANY throwaway User accounts (each capped at OWNER_CAP, so the cap can't see the campaign),
+// all keyword-stuffed with our topics and all pointing their homepage at one commercial site. The backlink IS the product, so the DOMAIN is the
+// only durable anchor (owner bans regenerate daily, and the text morphs: faceseek shipped "reverse image search" prose on 07-31 and KYC-onboarding
+// prose by 08-05). Both denied domains are verified vendors/tools, never buyers, so this is the VENDOR class applied to the website field:
+// finauth.io = "KYC Identity Verification & Biometric Authentication API" (face biometrics/liveness/doc OCR/AML screening) = an Enforcer competitor;
+// faceseek.online = reverse-face-search OSINT tool, off-domain. Added 2026-08-05, drops 39 stored leads across 20 throwaway owners.
+const SITE_DENY = new Set(["finauth.io", "faceseek.online"]);
+const siteDenied = (u) => { if (!u) return false; const h = String(u).replace(/^https?:\/\//i, "").replace(/^www\./i, "").split(/[/?#]/)[0].toLowerCase(); return [...SITE_DENY].some((d) => h === d || h.endsWith("." + d)); };
 
 const matchKW = (t) => { t = t || ""; for (const k of KW) if (k.re.test(t)) return k; return null; };
 const score = (w, ms, eng) => {
@@ -196,6 +204,7 @@ async function main() {
   all = all.filter((l) => !(l.source === "GitHub" && TOOL.test((l.name || "") + " " + (l.desc || "")))); // prune already-stored AI-agent/MCP/tool junk
   all = all.filter((l) => !(l.source === "GitHub" && OFF.test((l.name || "") + " " + (l.desc || "")))); // prune already-stored off-domain junk (trading bots, expense trackers, adtech)
   all = all.filter((l) => !(l.source === "GitHub" && VENDOR.test(l.name || ""))); // prune already-stored identity-verification vendors (competitors, not buyers: Sumsub/SumSubstance, Innovatrics, etc.)
+  all = all.filter((l) => !siteDenied(l.website)); // drop SEO backlink farms + vendor-owned repos by homepage domain (source-agnostic: github() and codesearch() both enrich website). Runs post-merge so it covers fresh AND stored leads in one place.
 
   all.sort((a, b) => b.score - a.score);
   const ownerSeen = {};
