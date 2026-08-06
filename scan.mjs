@@ -194,7 +194,10 @@ async function codesearch() {
 async function main() {
   const fresh = [...(await github()), ...(await hn()), ...(await hiring()), ...(await codesearch())];
   const store = new Map();
-  if (existsSync("leads.json")) { try { for (const l of JSON.parse(readFileSync("leads.json", "utf8"))) store.set(l.id, l); } catch (e) {} }
+  // leads.json is written as { updated_at, count, leads: [...] }, so iterating the parsed object directly threw and the catch swallowed it:
+  // the store loaded 0 every run and the board was silently rebuilt from scratch each hour (first_seen reset, nothing accumulated,
+  // and every "prune already-stored junk" filter below was a no-op). Accept both shapes. Fixed 2026-08-06.
+  if (existsSync("leads.json")) { try { const p = JSON.parse(readFileSync("leads.json", "utf8")); for (const l of (Array.isArray(p) ? p : p.leads || [])) store.set(l.id, l); } catch (e) {} }
   let added = 0, updated = 0;
   for (const l of fresh) {
     l.score = score(l.w, l.ms, l.eng);
@@ -211,6 +214,9 @@ async function main() {
   all = all.filter((l) => !(l.source === "GitHub" && VENDOR.test(l.name || ""))); // prune already-stored identity-verification vendors (competitors, not buyers: Sumsub/SumSubstance, Innovatrics, etc.)
   all = all.filter((l) => !siteDenied(l.website)); // drop SEO backlink farms + vendor-owned repos by homepage domain (source-agnostic: github() and codesearch() both enrich website). Runs post-merge so it covers fresh AND stored leads in one place.
 
+  // Recompute every score, not just the fresh ones: now that the store actually loads, a lead that stops being re-seen would
+  // otherwise keep the score it earned when it was new and outrank genuinely fresh leads until the 60-day cutoff.
+  for (const l of all) l.score = score(l.w, l.ms, l.eng);
   all.sort((a, b) => b.score - a.score);
   const ownerSeen = {};
   all = all.filter((l) => { const o = l.author ? l.author.toLowerCase() : null; if (!o) return true; ownerSeen[o] = (ownerSeen[o] || 0) + 1; return ownerSeen[o] <= OWNER_CAP; });
