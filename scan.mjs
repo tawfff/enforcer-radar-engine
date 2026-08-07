@@ -34,7 +34,19 @@ const GH_TOPICS = [
   { q: "topic:neobank", v: "fintech", w: 4 }, { q: "topic:fintech", v: "fintech", w: 4 },
   { q: "topic:ssi", v: "credential", w: 5 },
 ];
+const SENIOR = /\b(chief|global head|head of|vp|director|principal|mlro)\b/i; // tiebreak WITHIN the strong roles, so the card opener shows "Director, Financial Crimes Compliance", not "Associate Compliance Manager, Complaints"
 const ATS_GH = ["brex","mercury","gusto","chime","lithic","marqeta","alloy","affirm","stripe","checkr","monzo","sofi","nubank","robinhood","gemini","ripple","coinbase","bitpanda","n26","gocardless","solarisbank","block","blockchain","adyen","tide","sumup","thunes","c6bank","payoneer","ebury","bvnk","okx","luno","bybit","xendit","inter","tamara","truelayer","upstart","sezzle","moniepoint"];
+// Lever boards, same keyless public endpoint as Greenhouse. Added because Greenhouse has been probed dry for ~30 consecutive runs (0 new qualifying
+// slugs since 08-05), so it is no longer a growth path. Each slug below was verified at source to return MULTIPLE in-domain roles, not one:
+// nium 39 postings / 8 in-domain (licensed cross-border B2B payments; VP Global Commercial Compliance, Director Regulatory Compliance & MLRO Malta ...),
+// dlocal 57 / 10 (NASDAQ: DLO emerging-market payments; Compliance Officer / MLRO across Cameroon, Senegal, Saudi, Colombia, Indonesia),
+// qonto 41 / 5 (French licensed business-banking; Junior AML Transaction Monitoring, Internal Control Officer Compliance, Fraud Analyst, onboarding officers).
+// All three are textbook licensed buyers and were completely invisible to the engine.
+const ATS_LEVER = ["nium","dlocal","qonto"];
+// Ashby, same keyless public posting API (api.ashbyhq.com/posting-api/job-board/<slug>), verified live this run:
+// ramp 122 jobs / 7 in-domain (Money Laundering Reporting Officer AML, AML Operations Analyst, Software Engineer Fraud & Identity),
+// column 23 / 5 (AML Analyst, Correspondent Banking Compliance, Digital Assets Compliance, Customer Risk Strategy) - a US nationally chartered bank.
+const ATS_ASHBY = ["ramp","column"];
 // Teams importing a competitor's SDK in package.json = actively building = the warmest buyers. Each lead carries its own outreach hook (the vendor they shipped).
 const SDK_QUERIES = [
   { q: '"onfido-sdk-ui" filename:package.json', vendor: "Onfido", v: "identity", w: 6 },
@@ -141,17 +153,36 @@ async function hn() {
   }
   return out;
 }
+// Dedupe by title first: multi-location postings repeat, so a card used to read "Compliance Analyst · Compliance Analyst · Fraud Operations Analyst ·
+// Fraud Operations Analyst". Then rank strongest-intent first and seniority within that, because the sort is what picks the card's opener.
+const pickRoles = (rs) => [...new Map(rs.filter((r) => HIRE.test(r.title)).map((r) => [r.title, r])).values()]
+  .sort((a, b) => (STRONG.test(b.title) - STRONG.test(a.title)) || (SENIOR.test(b.title) - SENIOR.test(a.title))).slice(0, 4);
+
 async function hiring() {
   const out = [];
+  // one lead shape for both ATS lanes; `pre` keeps ids distinct so a slug present on both boards can never silently merge into one card
+  const push = (pre, slug, roles, fallbackUrl) => {
+    if (!roles.length) return;
+    const company = slug.charAt(0).toUpperCase() + slug.slice(1);
+    out.push({ id: pre + slug, name: company, source: "Hiring", company: company, vertical: "identity", term: "hiring: " + roles[0].title, w: 4, ms: Math.max(...roles.map((r) => r.ms)), eng: roles.length * 30, url: roles[0].url || fallbackUrl, desc: "Open roles: " + roles.map((r) => r.title).join(" · "), author: company });
+  };
   for (const slug of ATS_GH) {
     try {
       const j = await jget(`https://boards-api.greenhouse.io/v1/boards/${slug}/jobs?content=true`);
-      const roles = (j.jobs || []).filter((job) => HIRE.test(job.title || "")).sort((a, b) => (STRONG.test(b.title || "") ? 1 : 0) - (STRONG.test(a.title || "") ? 1 : 0)).slice(0, 4);
-      if (!roles.length) continue;
-      const latest = Math.max(...roles.map((r) => new Date(r.updated_at || now).getTime()));
-      const company = slug.charAt(0).toUpperCase() + slug.slice(1);
-      out.push({ id: "hire_" + slug, name: company, source: "Hiring", company: company, vertical: "identity", term: "hiring: " + roles[0].title, w: 4, ms: latest, eng: roles.length * 30, url: roles[0].absolute_url || ("https://boards.greenhouse.io/" + slug), desc: "Open roles: " + roles.map((r) => r.title).join(" · "), author: company });
+      push("hire_", slug, pickRoles((j.jobs || []).map((x) => ({ title: x.title || "", url: x.absolute_url, ms: new Date(x.updated_at || now).getTime() }))), "https://boards.greenhouse.io/" + slug);
     } catch (e) { console.log("ats", slug, e.message); }
+  }
+  for (const slug of ATS_LEVER) {
+    try {
+      const j = await jget(`https://api.lever.co/v0/postings/${slug}?mode=json`);
+      push("hirelv_", slug, pickRoles((Array.isArray(j) ? j : []).map((x) => ({ title: x.text || "", url: x.hostedUrl, ms: x.createdAt || now }))), "https://jobs.lever.co/" + slug);
+    } catch (e) { console.log("lever", slug, e.message); }
+  }
+  for (const slug of ATS_ASHBY) {
+    try {
+      const j = await jget(`https://api.ashbyhq.com/posting-api/job-board/${slug}`);
+      push("hireab_", slug, pickRoles((j.jobs || []).map((x) => ({ title: x.title || "", url: x.jobUrl, ms: new Date(x.publishedAt || now).getTime() }))), "https://jobs.ashbyhq.com/" + slug);
+    } catch (e) { console.log("ashby", slug, e.message); }
   }
   return out;
 }
