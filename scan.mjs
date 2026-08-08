@@ -28,10 +28,16 @@ const TOOL = /\b(mcp server|model context protocol|coding agent|agent framework|
 const VENDOR = /^(persona|plaid|privy|onfido|sumsub|sumsubstance|innovatrics|doubangotelecom|faceonlive|kby-ai|veriff|auth0|okta|workos|clerkinc|complycube|verifyblind|vouchsafe|microblink)\//i;
 const HIRE = /\b(kyc|aml|compliance|identity|onboarding|verification|fraud|risk|trust and safety|payments? engineer)\b/i;
 const STRONG = /\b(kyc|aml|pld|cdd|sanctions?|financial crime|money laundering|lavagem|compliance|fraud)\b/i; // rank these strongest-intent roles to the front so the card opener shows them, not generic "onboarding"
+// `strict` = the topic is too broad to be a signal on its own, so the DESCRIPTION must also carry an in-domain keyword.
+// topic:fintech is the only one: every other topic here is narrow and in-domain by construction. Verified 2026-08-08 on the
+// live 300-lead board: topic:fintech with no KW match was 132 leads (44% of the whole board) and 134 of the 135 leads in the
+// bottom 75-76 score tier, i.e. it was crowding the 300 cap with "any repo tagged fintech, pushed today, 0 stars".
+// Sampled ~45 of them: HFT matching engines, Firefly-III personal-finance forks, an Israeli bank scraper, Algerian geodata,
+// a BERT joke model, Helm charts, hedge-fund 13F trackers, a Chinese stock-data SDK, a grid trading bot. ~5% precision.
 const GH_TOPICS = [
   { q: "topic:kyc", v: "identity", w: 5 }, { q: "topic:aml", v: "identity", w: 5 },
   { q: "topic:identity-verification", v: "identity", w: 5 }, { q: "topic:verifiable-credentials", v: "credential", w: 5 },
-  { q: "topic:neobank", v: "fintech", w: 4 }, { q: "topic:fintech", v: "fintech", w: 4 },
+  { q: "topic:neobank", v: "fintech", w: 4 }, { q: "topic:fintech", v: "fintech", w: 4, strict: true },
   { q: "topic:ssi", v: "credential", w: 5 },
 ];
 const SENIOR = /\b(chief|global head|head of|vp|director|principal|mlro)\b/i; // tiebreak WITHIN the strong roles, so the card opener shows "Director, Financial Crimes Compliance", not "Associate Compliance Manager, Complaints"
@@ -48,17 +54,26 @@ const ATS_LEVER = ["nium","dlocal","qonto"];
 // column 23 / 5 (AML Analyst, Correspondent Banking Compliance, Digital Assets Compliance, Customer Risk Strategy) - a US nationally chartered bank.
 const ATS_ASHBY = ["ramp","column"];
 // Teams importing a competitor's SDK in package.json = actively building = the warmest buyers. Each lead carries its own outreach hook (the vendor they shipped).
+// ORDER MATTERS and used to silently cost this lane 5 of its 10 vendors: candidates are collected into one insertion-ordered
+// Map and then qualified with `.slice(0, N)`, so whichever queries run first eat the whole budget. With N=80, Onfido and Sumsub
+// alone filled it (they return ~45 unique owners each) and Veriff, Alloy and Unit NEVER reached qualification. Verified on the
+// 2026-08-08 board: all 11 "Building with" leads were Onfido or Sumsub, and zero came from the other eight queries.
+// The five below are the high-precision identity/KYC lane: shipping one of these SDKs means a team is doing real KYC.
 const SDK_QUERIES = [
   { q: '"onfido-sdk-ui" filename:package.json', vendor: "Onfido", v: "identity", w: 6 },
   { q: '"@sumsub/websdk" filename:package.json', vendor: "Sumsub", v: "identity", w: 6 },
   { q: '"@veriff/incontext-sdk" filename:package.json', vendor: "Veriff", v: "identity", w: 6 },
   { q: '"@alloyidentity/web-sdk" filename:package.json', vendor: "Alloy", v: "identity", w: 6 },
-  { q: '"@workos-inc/node" filename:package.json', vendor: "WorkOS", v: "identity", w: 5 },
-  { q: '"@privy-io/react-auth" filename:package.json', vendor: "Privy", v: "wallet", w: 5 },
-  { q: '"@privy-io/server-auth" filename:package.json', vendor: "Privy", v: "wallet", w: 5 },
-  { q: '"react-plaid-link" filename:package.json', vendor: "Plaid", v: "fintech", w: 5 },
-  { q: '"plaid-node" filename:package.json', vendor: "Plaid", v: "fintech", w: 5 },
   { q: '"@unit-finance/unit-node-sdk" filename:package.json', vendor: "Unit", v: "fintech", w: 5 },
+  // PARKED, not deleted: these three are miscalibrated for Enforcer and, because of the budget bug above, have produced zero
+  // leads for their whole life, so parking them changes nothing today. Sampled the live top 30 of each on 2026-08-08:
+  //   { q: '"@workos-inc/node" ...', vendor: "WorkOS" }  -> mastra, continue, unkey, convex, openstatus, digger, MCPJam:
+  //     dev-tool SaaS wiring up enterprise SSO. WorkOS is an SSO vendor, not a KYC vendor, so the import proves nothing in-domain.
+  //   { q: '"react-plaid-link" ...' } and { q: '"plaid-node" ...' }, vendor "Plaid" -> ExpenseTracker, finance-saas-expense-tracker,
+  //     jsmastery-pro/bankify, next-banking-app: tutorial/personal-finance projects (the class OFF already bans, and codesearch()
+  //     never applies OFF). Re-enable only behind a text filter on this lane.
+  //   { q: '"@privy-io/react-auth" ...' } x2, vendor "Privy" -> genuinely mixed (dydxprotocol/v4-web, NeurProjects/neur-app are
+  //     real) but ~2/3 crypto starter kits and toy dapps, which would land at score 85+ ABOVE every hiring lead. Same gate needed.
 ];
 // Vendor / SDK-mirror orgs to never surface as "buyers" (their own repos, demos, type stubs).
 const VENDOR_LOGINS = new Set(["privy-io","plaid","onfido","sumsub","veriff","getveriff","workos","workos-inc","unit-finance","alloy","alloy-samples","usealloy","alloyidentity","lithic","lithic-com","persona","withpersona","marqeta","definitelytyped","scalablytyped","cdnjs","ootbdev"]);
@@ -121,6 +136,7 @@ async function github() {
         const text = it.full_name + " " + (it.description || "");
         if (JUNK.test(text) || OFF.test(text) || TOOL.test(text) || CRACK.test(it.full_name) || DEMO.test(it.full_name) || VENDOR.test(it.full_name)) continue;
         const m = matchKW(it.description || "");
+        if (k.strict && !m) continue; // broad topic + nothing in-domain in the description = not a signal (see GH_TOPICS)
         out.push({ id: "gh_" + it.id, name: it.full_name, source: "GitHub", vertical: m ? m.v : k.v, term: m ? m.lab : k.q.replace("topic:", ""), w: Math.max(k.w, m ? m.w : 0), ms: new Date(it.pushed_at || it.updated_at).getTime(), eng: it.stargazers_count || 0, url: it.html_url, desc: it.description, author: it.owner && it.owner.login });
       }
     } catch (e) { console.log("gh", k.q, e.message); }
@@ -209,7 +225,9 @@ async function codesearch() {
   }
   // Qualify + enrich each unique owner: drop archived/stale repos, pull stars + the org's real brand name + website.
   const out = [];
-  for (const c of [...found.values()].slice(0, 80)) {
+  // 160, not 80: the five queries above return ~150 unique owners between them, so the budget now covers every vendor instead of
+  // being exhausted by the first two. Costs ~2 cheap REST calls per extra candidate, well inside the scan's runtime.
+  for (const c of [...found.values()].slice(0, 160)) {
     let stars = 0, ms = now, ok = true;
     try {
       const rr = await fetch(`https://api.github.com/repos/${c.repo}`, { headers });
@@ -254,6 +272,10 @@ async function main() {
   all = all.filter((l) => !(l.source === "GitHub" && TOOL.test((l.name || "") + " " + (l.desc || "")))); // prune already-stored AI-agent/MCP/tool junk
   all = all.filter((l) => !(l.source === "GitHub" && OFF.test((l.name || "") + " " + (l.desc || "")))); // prune already-stored off-domain junk (trading bots, expense trackers, adtech)
   all = all.filter((l) => !(l.source === "GitHub" && VENDOR.test(l.name || ""))); // prune already-stored identity-verification vendors (competitors, not buyers: Sumsub/SumSubstance, Innovatrics, etc.)
+  // Prune the already-stored half of the strict-topic change above. `term` is set to the raw topic slug only when matchKW found
+  // nothing, so term === "fintech" is exactly the "tagged fintech, description says nothing in-domain" cohort and nothing else
+  // (a real KW hit stores term "fintech / payments"). Drops 132 of 300 on the 2026-08-08 board.
+  all = all.filter((l) => !(l.source === "GitHub" && l.term === "fintech"));
   all = all.filter((l) => !siteDenied(l.website)); // drop SEO backlink farms + vendor-owned repos by homepage domain (source-agnostic: github() and codesearch() both enrich website). Runs post-merge so it covers fresh AND stored leads in one place.
 
   // Recompute every score, not just the fresh ones: now that the store actually loads, a lead that stops being re-seen would
