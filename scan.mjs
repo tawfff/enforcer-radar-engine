@@ -48,11 +48,18 @@ const ATS_GH = ["brex","mercury","gusto","chime","lithic","marqeta","alloy","aff
 // dlocal 57 / 10 (NASDAQ: DLO emerging-market payments; Compliance Officer / MLRO across Cameroon, Senegal, Saudi, Colombia, Indonesia),
 // qonto 41 / 5 (French licensed business-banking; Junior AML Transaction Monitoring, Internal Control Officer Compliance, Fraud Analyst, onboarding officers).
 // All three are textbook licensed buyers and were completely invisible to the engine.
-const ATS_LEVER = ["nium","dlocal","qonto"];
+// trustly added 2026-08-08: 21 postings / 3 in-domain, 2 STRONG and both dedicated KYC headcount (Consumer KYC Analyst +
+// Senior KYC Analyst, Lisbon) plus Lead PM Risk. A licensed open-banking payments provider staffing a KYC function, so it clears
+// the multi-match bar that got form3/betterment rejected on a single role.
+const ATS_LEVER = ["nium","dlocal","qonto","trustly"];
 // Ashby, same keyless public posting API (api.ashbyhq.com/posting-api/job-board/<slug>), verified live this run:
 // ramp 122 jobs / 7 in-domain (Money Laundering Reporting Officer AML, AML Operations Analyst, Software Engineer Fraud & Identity),
 // column 23 / 5 (AML Analyst, Correspondent Banking Compliance, Digital Assets Compliance, Customer Risk Strategy) - a US nationally chartered bank.
-const ATS_ASHBY = ["ramp","column"];
+// rain added 2026-08-08 and it is the strongest hiring board found in ~30 runs: 44 jobs / 9 in-domain / 8 STRONG, an entire
+// Compliance department (Compliance Manager / Associate / Analyst / Engineer, Financial Crimes & Risk Data Analyst) PLUS
+// "Software Engineer - Compliance" and two fraud-risk ML/DS roles. rain.xyz is an enterprise stablecoin payments platform,
+// not a vendor, and it is hiring engineers to BUILD compliance in-house, which is the warmest signal this radar can detect.
+const ATS_ASHBY = ["ramp","column","rain"];
 // Teams importing a competitor's SDK in package.json = actively building = the warmest buyers. Each lead carries its own outreach hook (the vendor they shipped).
 // ORDER MATTERS and used to silently cost this lane 5 of its 10 vendors: candidates are collected into one insertion-ordered
 // Map and then qualified with `.slice(0, N)`, so whichever queries run first eat the whole budget. With N=80, Onfido and Sumsub
