@@ -121,8 +121,20 @@ const SITE_DENY = new Set(["finauth.io", "faceseek.online", "faceonlive.com", "p
 const siteDenied = (u) => { if (!u) return false; const h = String(u).replace(/^https?:\/\//i, "").replace(/^www\./i, "").split(/[/?#]/)[0].toLowerCase(); return [...SITE_DENY].some((d) => h === d || h.endsWith("." + d)); };
 
 const matchKW = (t) => { t = t || ""; for (const k of KW) if (k.re.test(t)) return k; return null; };
-const score = (w, ms, eng) => {
-  const rec = Math.max(0, 1 - (now - ms) / (30 * 864e5));
+// `hold` = this signal's intent does NOT decay on the 30-day repo-push curve, so floor its recency term.
+// Used by the hiring lane only. A GitHub push is a moment; an ATS posting that is STILL OPEN is a standing
+// condition, and if anything an older open req is the STRONGER signal (the role is still unfilled and the
+// compliance budget is still live). Scoring it on push-recency ranked the lane almost purely by posting age:
+// measured on the 2026-08-09 board, Nium ("Director - Regulatory Compliance & MLRO Malta", "Global Head of
+// Commercial Compliance", 111d) scored 45 and Dlocal (MLRO reqs across 4 countries) 45, while SoFi's 1-day-old
+// "Fraud Model Developer" scored 84. With the board back at 294/300 and `slice(0, 300)` acting as a live
+// eviction queue, that put 17 of 45 hiring leads below the GitHub lane's floor of 71, i.e. licensed money
+// transmitters staffing MLRO roles were about to be evicted by 0-star topic repos pushed today. Same
+// crowding-out mechanism as the 08-08 topic:fintech finding, one lane over.
+// 0.7 floors the lane at ~69-73 rather than flattening it: a genuinely fresh posting still keeps its full
+// recency bonus, so ordering WITHIN the lane is preserved and only the stale tail is lifted off the cut line.
+const score = (w, ms, eng, hold) => {
+  const rec = Math.max(0, 1 - (now - ms) / (30 * 864e5), hold ? 0.7 : 0);
   const e = Math.min(1, (eng || 0) / 200);
   return Math.max(0, Math.min(100, Math.round(w * 9 + rec * 40 + e * 15)));
 };
@@ -267,7 +279,7 @@ async function main() {
   if (existsSync("leads.json")) { try { const p = JSON.parse(readFileSync("leads.json", "utf8")); for (const l of (Array.isArray(p) ? p : p.leads || [])) store.set(l.id, l); } catch (e) {} }
   let added = 0, updated = 0;
   for (const l of fresh) {
-    l.score = score(l.w, l.ms, l.eng);
+    l.score = score(l.w, l.ms, l.eng, l.source === "Hiring");
     const prev = store.get(l.id);
     if (prev) { prev.last_seen = now; prev.score = l.score; prev.ms = l.ms; prev.eng = l.eng; prev.desc = l.desc || prev.desc; prev.company = l.company || prev.company; prev.website = l.website || prev.website; prev.vendor = l.vendor || prev.vendor; updated++; }
     else { l.first_seen = now; l.last_seen = now; store.set(l.id, l); added++; }
@@ -287,7 +299,7 @@ async function main() {
 
   // Recompute every score, not just the fresh ones: now that the store actually loads, a lead that stops being re-seen would
   // otherwise keep the score it earned when it was new and outrank genuinely fresh leads until the 60-day cutoff.
-  for (const l of all) l.score = score(l.w, l.ms, l.eng);
+  for (const l of all) l.score = score(l.w, l.ms, l.eng, l.source === "Hiring");
   all.sort((a, b) => b.score - a.score);
   const ownerSeen = {};
   all = all.filter((l) => { const o = l.author ? l.author.toLowerCase() : null; if (!o) return true; ownerSeen[o] = (ownerSeen[o] || 0) + 1; return ownerSeen[o] <= OWNER_CAP; });
