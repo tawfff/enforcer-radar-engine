@@ -51,7 +51,13 @@ const ATS_GH = ["brex","mercury","gusto","chime","lithic","marqeta","alloy","aff
 // trustly added 2026-08-08: 21 postings / 3 in-domain, 2 STRONG and both dedicated KYC headcount (Consumer KYC Analyst +
 // Senior KYC Analyst, Lisbon) plus Lead PM Risk. A licensed open-banking payments provider staffing a KYC function, so it clears
 // the multi-match bar that got form3/betterment rejected on a single role.
-const ATS_LEVER = ["nium","dlocal","qonto","trustly"];
+// anchorage added 2026-08-09: 41 postings / 4 in-domain / 2 STRONG, and both STRONG are dedicated Compliance
+// headcount in two jurisdictions (Member of Compliance Analytics US + Member of Compliance Singapore) plus two
+// Global Risk Management reqs. Anchorage Digital holds a US OCC national trust bank charter, so it is a licensed
+// custodian staffing a compliance function, not a vendor. Clears the multi-role bar that rejected form3/betterment.
+// Worth noting for the compounding loop: the 08-06 run probed `anchorage` on GREENHOUSE and got no board, so it
+// was written off. It has a Lever board. A slug being dry on one ATS says nothing about the other three.
+const ATS_LEVER = ["nium","dlocal","qonto","trustly","anchorage"];
 // Ashby, same keyless public posting API (api.ashbyhq.com/posting-api/job-board/<slug>), verified live this run:
 // ramp 122 jobs / 7 in-domain (Money Laundering Reporting Officer AML, AML Operations Analyst, Software Engineer Fraud & Identity),
 // column 23 / 5 (AML Analyst, Correspondent Banking Compliance, Digital Assets Compliance, Customer Risk Strategy) - a US nationally chartered bank.
