@@ -309,7 +309,24 @@ async function main() {
   all.sort((a, b) => b.score - a.score);
   const ownerSeen = {};
   all = all.filter((l) => { const o = l.author ? l.author.toLowerCase() : null; if (!o) return true; ownerSeen[o] = (ownerSeen[o] || 0) + 1; return ownerSeen[o] <= OWNER_CAP; });
-  all = all.slice(0, 300);
+  // Per-lane guarantee, then backfill the rest of the cap by score. `slice(0, CAP)` on a pure global score sort made the
+  // ONE unbounded lane (GitHub topics) the sole decider of what the other three lanes get to keep, and cross-lane scores are
+  // not comparable: the score fn was calibrated per-signal, never across signals, so a 0-star topic repo pushed today (71)
+  // outranks a licensed money transmitter hiring an MLRO (69) and a Consensys Onfido integration (56). This was diagnosed
+  // twice as a filter problem (08-08 topic:fintech chaff) and once as a scoring problem (08-09 hiring push-decay); both were
+  // real, but both were symptoms of this. MEASURED on the 08-10 board, 300/300 saturated: 40 leads sat below the GitHub
+  // lane's floor of 70 while GitHub grew ~31/day, so the queue cleared in ~31h, and it held 3 Hiring leads at 69
+  // (Gocardless Financial Crime, Xendit Regulatory Compliance, Checkr), 8 of the 10 Hacker News leads, and the org-owned
+  // half of Building-with (Consensys, OnlyDust, WSO2/Asgardeo, holonym-foundation, 0xkyc, TPF Payments Factory, dacade).
+  // The 22h before that had already evicted 24 Building-with + 1 HN lead, replaced by 27 fresh GitHub topic hits.
+  // The three quotas below are ABOVE what each lane can currently produce (Hiring is bounded by 49 ATS slugs, Building-with
+  // by codesearch's 160-owner budget, HN by its query set), so today they are simply "never evict these", and GitHub still
+  // takes every slot the others leave unused (46+10+46 used today -> GitHub keeps all 198). They only start to bite if a
+  // bounded lane grows past its guarantee, which is the point: growth in one lane can then no longer silently delete another.
+  const QUOTA = { Hiring: 60, "Hacker News": 25, "Building with": 80 };
+  const laneSeen = {}, guaranteed = [], overflow = [];
+  for (const l of all) { laneSeen[l.source] = (laneSeen[l.source] || 0) + 1; (laneSeen[l.source] <= (QUOTA[l.source] || 0) ? guaranteed : overflow).push(l); }
+  all = guaranteed.concat(overflow).slice(0, 300).sort((a, b) => b.score - a.score); // re-sort so the written order stays pure score, as the site expects
   writeFileSync("leads.json", JSON.stringify({ updated_at: new Date().toISOString(), count: all.length, leads: all }, null, 0));
   console.log(`scan done: ${fresh.length} fresh, +${added} new, ~${updated} updated, ${all.length} stored`);
 }
