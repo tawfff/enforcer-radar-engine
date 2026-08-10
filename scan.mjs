@@ -65,7 +65,14 @@ const ATS_LEVER = ["nium","dlocal","qonto","trustly","anchorage"];
 // Compliance department (Compliance Manager / Associate / Analyst / Engineer, Financial Crimes & Risk Data Analyst) PLUS
 // "Software Engineer - Compliance" and two fraud-risk ML/DS roles. rain.xyz is an enterprise stablecoin payments platform,
 // not a vendor, and it is hiring engineers to BUILD compliance in-house, which is the warmest signal this radar can detect.
-const ATS_ASHBY = ["ramp","column","rain"];
+// airwallex added 2026-08-10 and it displaces rain as the strongest hiring board this radar has found: 630 postings /
+// 543 unique titles / 63 in-domain / 29 STRONG. SIX MLRO reqs across separate jurisdictions (Compliance Manager & MLRO
+// South Korea, Compliance Director & MLRO US, Senior Compliance Manager & MLRO, + 3 more), "Senior Director, AML &
+// Sanctions, Governance & Policy", "Financial Crime Transformation Lead", Regulatory Compliance Managers in Japan, NZ,
+// Mexico, Indonesia, Australia and China, and critically TWO "Engineering Lead / Manager, KYC" reqs, i.e. it is hiring
+// engineers to BUILD KYC in-house rather than buying a bureau. Airwallex is a licensed global payments company (its own
+// board carries Global Payments engineers, Card Schemes PM, mid-market AEs), so a buyer and not a vendor.
+const ATS_ASHBY = ["ramp","column","rain","airwallex"];
 // Teams importing a competitor's SDK in package.json = actively building = the warmest buyers. Each lead carries its own outreach hook (the vendor they shipped).
 // ORDER MATTERS and used to silently cost this lane 5 of its 10 vendors: candidates are collected into one insertion-ordered
 // Map and then qualified with `.slice(0, N)`, so whichever queries run first eat the whole budget. With N=80, Onfido and Sumsub
