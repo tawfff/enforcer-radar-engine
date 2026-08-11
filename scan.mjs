@@ -119,6 +119,17 @@ const VENDOR_LOGINS = new Set(["privy-io","plaid","onfido","sumsub","veriff","ge
 // All four verified against the GitHub API and, for Yoti, the company's own site. Added 2026-08-07, drop 6 stored leads.
 const OWNER_DENY = new Set(["api-evangelist","cognis-digital","qinisolabs","ariannamethod","shaostoul","xbbg-org","cccpan","smileidentity","zhu-j-faceonlive","remoprinz","karbine98kz","ghostfolio","abolfazltafakori","jumbojett","burnssa","yeasy","faceplugin-ltd","hkuds","wordstotech-design","rcbj","getyoti","sherlock-tg-bot","carrismetropolitana"]);
 const OWNER_CAP = 3; // no single GitHub owner may flood the board (guards against future repo-farms)
+// Building-with only: a PERSONAL GitHub account shipping a KYC SDK with no traction is a student/hobby project, not a buyer.
+// codesearch() already penalised User-owned candidates (w-2), and the 2026-08-11 board proved that penalty is not enough:
+// 37 of the lane's 70 leads were User-owned and ALL 37 were personal projects, zero plausible buyers. hrms, Party-Picks,
+// braida-beauty-marketplace, Fsd200projects, satoshi_web, open-source-contribution-backup, mafiono/wow, cruiser-app,
+// Vantage_legal_brain, ggzwld/dub (a hand-copy of dubinc/dub), plus BuyOwnEx (31 stars, a white-label exchange template).
+// The penalty only pushed them DOWN the board, it never removed them, so with the per-lane quota now guaranteeing this lane
+// 80 slots the quota had started PROTECTING those 37 from eviction, which is the 08-10 watch item firing exactly as predicted.
+// A star floor rather than a blanket User ban, so a genuinely notable solo project can still qualify: today's whole User-owned
+// cohort tops out at 31 stars, so 50 drops all 37 with zero false negatives while leaving the door open. Org-owned leads are
+// untouched (all 33 keep their slots: Expensify, dub, Superteam, Consensys, DFXswiss, Entrust, HDRUK, OnlyDust, saasquatch).
+const BW_USER_STARS = 50;
 // SEO backlink farms: template repos cloned across MANY throwaway User accounts (each capped at OWNER_CAP, so the cap can't see the campaign),
 // all keyword-stuffed with our topics and all pointing their homepage at one commercial site. The backlink IS the product, so the DOMAIN is the
 // only durable anchor (owner bans regenerate daily, and the text morphs: faceseek shipped "reverse image search" prose on 07-31 and KYC-onboarding
@@ -271,13 +282,14 @@ async function codesearch() {
       }
     } catch (e) {}
     if (!ok) { await sleep(80); continue; }
-    let company = c.login, website = null;
+    let company = c.login, website = null, personal = false;
     try {
       let r = await fetch(`https://api.github.com/orgs/${c.login}`, { headers });
       if (r.status === 404) r = await fetch(`https://api.github.com/users/${c.login}`, { headers });
-      if (r.ok) { const d = await r.json(); company = d.name || c.login; website = d.blog || null; if (d.type === "User") c.w = Math.max(3, c.w - 2); }
+      if (r.ok) { const d = await r.json(); company = d.name || c.login; website = d.blog || null; if (d.type === "User") { personal = true; c.w = Math.max(3, c.w - 2); } }
     } catch (e) {}
     await sleep(80);
+    if (personal && stars < BW_USER_STARS) continue; // personal account + no traction = hobby project, not a buyer (see BW_USER_STARS)
     out.push({ id: "code_" + c.login, name: c.repo, source: "Building with", vertical: c.v, term: "uses " + c.vendor, w: c.w, ms, eng: stars, url: c.repoUrl, desc: "Ships the " + c.vendor + " SDK in production code (" + c.repo + ")", company, website, author: c.login, vendor: c.vendor });
   }
   return out;
@@ -308,6 +320,12 @@ async function main() {
   // nothing, so term === "fintech" is exactly the "tagged fintech, description says nothing in-domain" cohort and nothing else
   // (a real KW hit stores term "fintech / payments"). Drops 132 of 300 on the 2026-08-08 board.
   all = all.filter((l) => !(l.source === "GitHub" && l.term === "fintech"));
+  // Prune the already-stored half of the BW_USER_STARS change above, otherwise the 37 sit in the store (unre-seen, so never
+  // refreshed) until the 60-day cutoff while the quota keeps protecting them. `w <= 4` is EXACTLY the User-owned cohort and
+  // nothing else: codesearch() is the only writer of this source and it sets w to 6 (identity SDKs) or 5 (Unit) for an Org and
+  // then knocks 2 off for a User, so Org leads are w5/w6 and User leads are w3/w4. Verified on the 08-11 board: 37 match, all 37
+  // are the personal projects listed above, and all 33 Org-owned leads are untouched.
+  all = all.filter((l) => !(l.source === "Building with" && l.w <= 4 && (l.eng || 0) < BW_USER_STARS));
   all = all.filter((l) => !siteDenied(l.website)); // drop SEO backlink farms + vendor-owned repos by homepage domain (source-agnostic: github() and codesearch() both enrich website). Runs post-merge so it covers fresh AND stored leads in one place.
 
   // Recompute every score, not just the fresh ones: now that the store actually loads, a lead that stops being re-seen would
