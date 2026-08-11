@@ -73,6 +73,28 @@ const ATS_LEVER = ["nium","dlocal","qonto","trustly","anchorage"];
 // engineers to BUILD KYC in-house rather than buying a bureau. Airwallex is a licensed global payments company (its own
 // board carries Global Payments engineers, Card Schemes PM, mid-market AEs), so a buyer and not a vendor.
 const ATS_ASHBY = ["ramp","column","rain","airwallex"];
+// THREE MORE KEYLESS ATS LANES, proposed on 08-08/08-09/08-10 and built now because Greenhouse/Lever/Ashby SLUG growth is
+// finally, provably exhausted: 42 fresh candidates probed against all three on 2026-08-11 (moderntreasury, increase, synctera,
+// treasuryprime, highnote, middesk, dwolla, zerohash, mural, conduit, airtm, lemon, koibanx, minka, alviere, fordefi, zodia,
+// amina, sygnum, taurus, hex-trust, cobo, matrixport, nexo, wirex, uphold, method, argyle, pinwheel, atomic, parafin, pipe,
+// capchase + 9 board orgs) returned ZERO qualifying boards. So a new ENDPOINT, not a new slug, is now the only hiring growth
+// path left. Each lane is the same shape as the three above (keyless GET, map to {title,url,ms}, reuse pickRoles/push) and each
+// seed below was verified live at source this run, not read about:
+// SmartRecruiters `wise` = 405 postings total / 26 in-domain / 19 STRONG on page 1 alone (Outsourcing Project Manager KYC,
+//   FinCrime Investigator - AML Investigations, Senior Product Compliance Manager - Financial Crime, KYC Operations Team Lead,
+//   Lead Data Scientist - KYC & Onboarding, KYC Operations Senior Analyst). Wise is a licensed money transmitter and was
+//   invisible to all three existing lanes: 08-10 probed it on Greenhouse AND Lever AND Ashby and got no board at all.
+// Recruitee `bunq` = 18 / 8 / 6 STRONG, and the shape is the tell: AML Branch Manager in Romania, Czechia AND Austria plus a
+//   Deputy AML Branch Manager in Belgium. A licensed EU neobank staffing AML management across four jurisdictions at once.
+// Workable `payabl` = 65 / 2 / 2 STRONG (AML Officer - Policies & Procedures, Senior Governance Risk and Compliance Analyst),
+//   a licensed EU payment institution. Thin but it clears the same multi-role bar trustly/anchorage cleared, and it replaces
+//   08-09's `yapily` seed for this lane, which re-probed at only 1 in-domain today and so would not qualify.
+// ponytail: SmartRecruiters caps a page at 100 of 405, and we take page 1 only. That page is the 100 most recently released
+// postings (the API returns releasedDate descending), which is the half we want, and it already yields 19 STRONG roles.
+// Upgrade path if a board's in-domain roles ever look truncated: add &offset= paging.
+const ATS_SR = ["wise"];
+const ATS_RC = ["bunq"];
+const ATS_WK = ["payabl"];
 // Teams importing a competitor's SDK in package.json = actively building = the warmest buyers. Each lead carries its own outreach hook (the vendor they shipped).
 // ORDER MATTERS and used to silently cost this lane 5 of its 10 vendors: candidates are collected into one insertion-ordered
 // Map and then qualified with `.slice(0, N)`, so whichever queries run first eat the whole budget. With N=80, Onfido and Sumsub
@@ -242,6 +264,24 @@ async function hiring() {
       const j = await jget(`https://api.ashbyhq.com/posting-api/job-board/${slug}`);
       push("hireab_", slug, pickRoles((j.jobs || []).map((x) => ({ title: x.title || "", url: x.jobUrl, ms: new Date(x.publishedAt || now).getTime() }))), "https://jobs.ashbyhq.com/" + slug);
     } catch (e) { console.log("ashby", slug, e.message); }
+  }
+  for (const slug of ATS_SR) {
+    try {
+      const j = await jget(`https://api.smartrecruiters.com/v1/companies/${slug}/postings?limit=100`);
+      push("hiresr_", slug, pickRoles((j.content || []).map((x) => ({ title: x.name || "", url: `https://jobs.smartrecruiters.com/${slug}/${x.id}`, ms: new Date(x.releasedDate || now).getTime() }))), "https://jobs.smartrecruiters.com/" + slug);
+    } catch (e) { console.log("smartrecruiters", slug, e.message); }
+  }
+  for (const slug of ATS_RC) {
+    try {
+      const j = await jget(`https://${slug}.recruitee.com/api/offers/`);
+      push("hirerc_", slug, pickRoles((j.offers || []).map((x) => ({ title: x.title || "", url: x.careers_url, ms: new Date((x.published_at || x.created_at || "").replace(" UTC", "Z").replace(" ", "T") || now).getTime() }))), `https://careers.${slug}.com/`);
+    } catch (e) { console.log("recruitee", slug, e.message); }
+  }
+  for (const slug of ATS_WK) {
+    try {
+      const j = await jget(`https://apply.workable.com/api/v1/widget/accounts/${slug}?details=true`);
+      push("hirewk_", slug, pickRoles((j.jobs || []).map((x) => ({ title: x.title || "", url: x.url || x.shortlink, ms: new Date(x.published_on || x.created_at || now).getTime() }))), "https://apply.workable.com/" + slug);
+    } catch (e) { console.log("workable", slug, e.message); }
   }
   return out;
 }
