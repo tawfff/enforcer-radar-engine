@@ -21,6 +21,16 @@ const OFF = /(\b(acpi|uefi|bios|firmware|kernel|device driver|bootloader|rtos|mi
 // Demo/test/template repos are not buyers, even when on-topic. Match on the repo name.
 const DEMO = /\b(demo|sample|examples?|playground|starter|template|ui.?kit|testing|test.app|tutorial|workshop|clone|practice|assignment|quickstart|sandbox|awesome|boilerplate)\b/i;
 const NEWS = /\b(awesome|list of|comparison|roundup|how to)\b/i;
+// HN lanes only: a story ABOUT a company is not a company you can sell to. Kills press/newsletters/aggregators, docs+support+
+// changelog+legal pages, government reports and archive.org mirrors; plus posts with no external URL (company parses to null, so
+// there is nothing for Brooke to contact) and "no KYC" pages (advertising the ABSENCE of what Enforcer sells is an anti-signal).
+// 2026-08-12: 10 of the 12 stored HN leads were this, incl. a competitor win ("Anthropic uses Persona") shown to Brooke as a lead.
+// ponytail: a denylist, so a press outlet not listed here still gets one card through until added. Ceiling accepted because the
+// alternative (a positive "is this a company homepage" test) needs a fetch per candidate. Upgrade path: add the host when seen.
+const HNBAD = /\b(techcrunch|substack|medium|forbes|bloomberg|reuters|cnbc|coindesk|finextra|pymnts|prnewswire|businesswire|archive|wikipedia|reddit|quora|youtube|linkedin)\b|\.gov\b|^(support|help|docs?|developers?|changelog|status|news|blog|web|wiki|kb)\.|\/(changelog|release-notes|legal|privacy|terms|press-release)\//i;
+const NOKYC = /\bno[ -]?(mandatory[ -])?(kyc|identity[ -]?verification|registration|id[ -]?check)/i;
+const hostpath = (u) => { try { const x = new URL(u); return x.hostname.replace(/^www\./, "") + x.pathname; } catch (e) { return ""; } };
+const hnJunk = (l) => !l.company || HNBAD.test(hostpath(l.url)) || NOKYC.test(l.name || "");
 // Pirated-software / SEO-spam repos that tag popular topics to ride them (e.g. "AML Maple" karaoke crack tagged topic:aml).
 const CRACK = /\b(crack|keygen|nulled|warez|repack|cracked|patch.?repo|aml.?maple|activation.?key|license.?key|serial.?key)\b/i;
 // AI-agent / MCP / dev-tool / security-tool projects that mis-tag identity & fintech topics to ride them. NOT buyers (no compliance budget; mostly brand-new 0-star repos). Verified 2026-06-22 to remove 22 such leads and zero real buyers.
@@ -94,7 +104,7 @@ const ATS_ASHBY = ["ramp","column","rain","airwallex"];
 // Upgrade path if a board's in-domain roles ever look truncated: add &offset= paging.
 const ATS_SR = ["wise"];
 const ATS_RC = ["bunq"];
-const ATS_WK = ["payabl"];
+const ATS_WK = ["payabl", "viva"]; // viva = Viva.com/Viva Wallet, Bank of Greece licensed credit institution + EMI in 22 EU countries; verified 2026-08-12: 40 jobs / 4 in-domain / 3 STRONG (AML/CFT Investigator, Senior AML/CFT Investigator, Anti-Fraud Investigator)
 // Teams importing a competitor's SDK in package.json = actively building = the warmest buyers. Each lead carries its own outreach hook (the vendor they shipped).
 // ORDER MATTERS and used to silently cost this lane 5 of its 10 vendors: candidates are collected into one insertion-ordered
 // Map and then qualified with `.slice(0, N)`, so whichever queries run first eat the whole budget. With N=80, Onfido and Sumsub
@@ -232,7 +242,7 @@ async function hn() {
         out.push({ id: "hn_" + h.objectID, name: h.title, source: "Hacker News", company: domainBrand(h.url), vertical: m.v, term: m.lab, w: m.w, ms: (h.created_at_i || 0) * 1000, eng: (h.points || 0) + (h.num_comments || 0) * 2, url: h.url || "https://news.ycombinator.com/item?id=" + h.objectID, author: h.author }); }
     } catch (e) { console.log("hn", term, e.message); }
   }
-  return out;
+  return out.filter((l) => !hnJunk(l));
 }
 // Dedupe by title first: multi-location postings repeat, so a card used to read "Compliance Analyst · Compliance Analyst · Fraud Operations Analyst ·
 // Fraud Operations Analyst". Then rank strongest-intent first and seniority within that, because the sort is what picks the card's opener.
@@ -356,6 +366,7 @@ async function main() {
   all = all.filter((l) => !(l.source === "GitHub" && TOOL.test((l.name || "") + " " + (l.desc || "")))); // prune already-stored AI-agent/MCP/tool junk
   all = all.filter((l) => !(l.source === "GitHub" && OFF.test((l.name || "") + " " + (l.desc || "")))); // prune already-stored off-domain junk (trading bots, expense trackers, adtech)
   all = all.filter((l) => !(l.source === "GitHub" && VENDOR.test(l.name || ""))); // prune already-stored identity-verification vendors (competitors, not buyers: Sumsub/SumSubstance, Innovatrics, etc.)
+  all = all.filter((l) => !(/^(Hacker News|Show HN)$/.test(l.source) && hnJunk(l))); // prune already-stored HN press/docs/no-company cards (drops 10 of 12 on the 2026-08-12 board)
   // Prune the already-stored half of the strict-topic change above. `term` is set to the raw topic slug only when matchKW found
   // nothing, so term === "fintech" is exactly the "tagged fintech, description says nothing in-domain" cohort and nothing else
   // (a real KW hit stores term "fintech / payments"). Drops 132 of 300 on the 2026-08-08 board.
