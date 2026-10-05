@@ -30,3 +30,10 @@ jobs:
           git add leads.json
           git diff --cached --quiet || git commit -m "scan: refresh leads"
           git push
+      - name: Publish leads to the radar site
+        env:
+          RADAR_UPLOAD_TOKEN: ${{ secrets.RADAR_UPLOAD_TOKEN }}
+        run: |
+          curl -fsS --retry 3 -X POST https://enforcer-radar-site.vercel.app/api/leads \
+            -H "Authorization: Bearer $RADAR_UPLOAD_TOKEN" -H "Content-Type: application/json" \
+            --data-binary @leads.json
